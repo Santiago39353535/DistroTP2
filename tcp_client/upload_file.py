@@ -12,19 +12,17 @@ def upload_file(server_address, src, name):
 	s.send(struct.pack('!i', len(name.encode())))
 	s.send(name.encode())
 	print(name)
-    
-	while True:
-		f = open(src, "rb")
+
+	f = open(src, "rb")
+	content = f.read(1024)
+
+	while content:
+		# Enviar contenido.
+		print("Largo siguiente paquete:" + str(len(content)))
+		s.send(struct.pack('!i', len(content)))
+		s.send(content)
 		content = f.read(1024)
 
-		while content:
-			# Enviar contenido.
-			print("Largo siguiente paquete:" + str(len(content)))
-			s.send(struct.pack('!i', len(content)))
-			s.send(content)
-			content = f.read(1024)
-
-		break
 
 	# Se utiliza el caracter de código 1 para indicar
 	# al cliente que ya se ha enviado todo el contenido.
@@ -40,7 +38,3 @@ def upload_file(server_address, src, name):
 	s.close()
 	f.close()
 	print("El archivo ha sido enviado correctamente.")
-
-	# TODO: Implementar TCP upload_file client
-
-	pass

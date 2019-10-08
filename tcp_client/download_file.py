@@ -14,31 +14,29 @@ def download_file(server_address, name, dst):
 
 	f = open(dst, "wb")
 
-	while True:
+	end = False;
+	while not end:
 		try:
 	  		# Recibir datos del cliente.
 			largo = s.recv(4)
 			largo = struct.unpack('!i', largo[:4])[0]
 			print("Largo Paquete por recibir" + str(largo))
 			input_data = s.recv(largo)
+
 		except error:
 			print("Error de lectura.")
 			break
-		else:
-			if input_data:
-				# Compatibilidad con Python 3.
-				if isinstance(input_data, bytes):
-					# print("FinArchivo")
-					end = input_data[0] == 1
-				else:
-		    			end = input_data == chr(1)
-				if not end:
-		    			# Almacenar datos.
-					f.write(input_data)
-				else:
-					break
+
+		if input_data:
+			# Compatibilidad con Python 3.
+			if isinstance(input_data, bytes):
+				# print("FinArchivo")
+				end = input_data[0] == 1
+			else:
+	    			end = input_data == chr(1)
+			if not end:
+	    			# Almacenar datos.
+				f.write(input_data)
+
 	print("El archivo se ha recibido correctamente.")
 	f.close()
-
-
-	pass

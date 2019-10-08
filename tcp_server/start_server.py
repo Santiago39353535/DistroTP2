@@ -8,18 +8,16 @@ def download(storage_dir,nombre,conn):
 	print(storage_dir + "/" + nombre.decode('utf-8'))
 	f = open(storage_dir + "/" + nombre.decode('utf-8'), "rb")
 
-	while True:
+	content = f.read(1024)
+
+	while content:
+		# Enviar contenido.
+		print("Largo siguiente paquete:" + str(len(content)))
+		conn.send(struct.pack('!i', len(content)))
+		conn.send(content)
 		content = f.read(1024)
 
-		while content:
-			# Enviar contenido.
-			print("Largo siguiente paquete:" + str(len(content)))
-			conn.send(struct.pack('!i', len(content)))
-			conn.send(content)
-			content = f.read(1024)
 
-
-		break
 
 		# Se utiliza el caracter de código 1 para indicar
 		# al cliente que ya se ha enviado todo el contenido.
@@ -40,8 +38,9 @@ def upload(storage_dir,nombre,conn):
 	print("Recibiendo Archivo")
 	print("Destino" + storage_dir + "/" + nombre.decode('utf-8'))
 	f = open(storage_dir + "/" + nombre.decode('utf-8'), "wb")
-	
-	while True:
+
+	end = False;
+	while not end:
 		try:
 	  		# Recibir datos del cliente.
 			largo = conn.recv(4)
@@ -52,20 +51,18 @@ def upload(storage_dir,nombre,conn):
 		except error:
 			print("Error de lectura.")
 			break
-		
+
 		if input_data:
 			# Compatibilidad con Python 3.
 			if isinstance(input_data, bytes):
 				# print("FinArchivo")
 				end = input_data[0] == 1
 			else:
-	    			end = input_data == chr(1)
+				end = input_data == chr(1)
 
 			if not end:
 	    			# Almacenar datos.
 	    			f.write(input_data)
-			else:
-	    			break
 	print("El archivo se ha recibido correctamente.")
 	f.close()
 
@@ -100,5 +97,5 @@ def start_server(server_address, storage_dir):
 		print("El archivo ha sido enviado correctamente.")
 
 	conn.close()
-	s.close() 
+	s.close()
 	pass
