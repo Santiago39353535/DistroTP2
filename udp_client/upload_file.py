@@ -28,25 +28,31 @@ def upload_file(server_address, src, name):
 	#s.settimeout(1)
 
 
-
 	#Three-way-Handshake
-
-	#try:
-	#	s.sendto('inicio'.encode(),server_address)
-	#	ack_recv = recv_numeros(s)
-	#	if( ack_recv != inicio):
-	#		raise Exeption("Problema ACK sincronizaciion")
-	#	send_ack(s,server_address,inicio)
-	#except socket.timeout:
-	#	print("Timeout sincronizacion")
-	#	sys.exit(1)
+	try:
+		seq_e = 0
+		ack_e = 0
+		data_e = 'inicio'
+		tam_e = len(data_e)
+		esperado = seq_e
+		
+		mandar_mensaje(s,server_address,seq_e,ack_e,tam_e,data_e)
+		seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
+		if( ack_r != esperado):
+			raise Exeption("Problema ACK sincronizaciion")
+		seq_e += 1
+		ack_e = seq_r
+		mandar_mensaje(s,server_address,seq_e,ack_e,tam_e,data_e)
+		seq_e += 1
+	except socket.timeout:
+		print("Timeout sincronizacion")
+		sys.exit(1)
 
 	#Fin de la sincroizacion
 
 
 	#Mando comando
-	seq_e = 10
-	ack_e = 0
+
 	tam_e = 3
 	data_e = 'upl'
 	mandar_mensaje(s,server_address,seq_e,ack_e,tam_e,data_e)

@@ -42,12 +42,31 @@ def start_server(server_address, storage_dir):
 
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind(server_address)
-	#s.settimeout(1)
+
+	#Three-way-Handshake
+
+	try:
+		seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+		seq_e = 0
+		tam_e = 0
+		tam_e = 0
+		data_e = ''
+		if data_r == "inicio":
+			ack_e = seq_r
+			mandar_mensaje(s,addr,seq_e,ack_e,tam_e,data_e)
+			esperado = seq_e
+			seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+			if( ack_r != esperado):
+				raise Exeption("Problema ACK sincronizaciion")
+			seq_e += 1
+	except socket.timeout:
+		print("Timeout sincronizacion")
+		sys.exit(1)
 
 	#Recivo comando
 	seq_r, ack_r, tam_r, codigo, addr = recibir_mensaje(s)
 
-	seq_e = 0
+
 	ack_e = seq_r
 	tam_e = 0
 	data_e = ''
