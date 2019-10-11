@@ -21,14 +21,14 @@ def upload(s,src):
 	while True:
 		seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
 		#no soporta perdida de paquete
-		if data_r == 'fin':
-			break
 		seq_e = 0
 		ack_e = seq_r
 		tam_e = 0
 		data_e = ''
 		mandar_mensaje(s,addr,seq_e,ack_e,tam_e,data_e)
 		seq_e += 1
+		if data_r == 'fin':
+			break
 		#perdida de paquete rompe, poner en header num de seq
 		f.write(data_r)
 	print("Termino de recibir el archivo")
@@ -43,6 +43,7 @@ def start_server(server_address, storage_dir):
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind(server_address)
 
+	"""
 	#Three-way-Handshake
 
 	try:
@@ -62,11 +63,12 @@ def start_server(server_address, storage_dir):
 	except socket.timeout:
 		print("Timeout sincronizacion")
 		sys.exit(1)
+	"""
 
 	#Recivo comando
 	seq_r, ack_r, tam_r, codigo, addr = recibir_mensaje(s)
 
-
+	seq_e = 0
 	ack_e = seq_r
 	tam_e = 0
 	data_e = ''
@@ -86,5 +88,6 @@ def start_server(server_address, storage_dir):
 
 	if codigo == "upl":
 		upload(s,storage_dir+'/'+nombre)
+
 
 	s.close()
