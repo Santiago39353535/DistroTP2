@@ -1,36 +1,54 @@
 import socket
+import sys, traceback
 
 RECV = 1500
-#header SSSSSAAAAATTTT
+#header IFSSSSSAAAAATTTT
 
-def mandar_mensaje(s,addr,seq,ack,tam,data):
-	msg = str(seq).zfill(5)+str(ack).zfill(5)+str(tam).zfill(4)+data
+def mandar_mensaje(s,addr,inicio,fin,seq,ack,tam,data):
+	msg = str(inicio)+str(fin)+str(seq).zfill(5)+str(ack).zfill(5)+str(tam).zfill(4)+data
 	s.sendto(msg.encode(),addr)
 
 def recibir_mensaje(s):
 	recv, addr = s.recvfrom(RECV)
 	recv = recv.decode()
-	seq = int(recv[0:5])#del 0 al 5 sin incluir
-	ack = int(recv[5:10])
-	tam = int(recv[10:14])
-	data = recv[14:14+int(tam)]
-	return (seq,ack,tam,data,addr)
+	inicio = int(recv[0])
+	fin = int(recv[1])
+	seq = int(recv[2:7])#del 0 al 5 sin incluir
+	ack = int(recv[7:12])
+	tam = int(recv[12:16])
+	data = recv[16:16+int(tam)]
+	return (inicio,fin,seq,ack,tam,data,addr)
 
 def upload(s,src):
+	print("Se empieza a recivir el archivo")
 	f = open(src, "w")
+
+	segmentos_recibidos = 1
+	time_outs_consecutivos = 0
+	tam_r = 0
+	seq_e = 1
+	inicio_e = 0
+	fin_e = 0
 	while True:
-		seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
-		#no soporta perdida de paquete
-		seq_e = 0
-		ack_e = seq_r
-		tam_e = 0
-		data_e = ''
-		mandar_mensaje(s,addr,seq_e,ack_e,tam_e,data_e)
-		seq_e += 1
-		if data_r == 'fin':
-			break
-		#perdida de paquete rompe, poner en header num de seq
-		f.write(data_r)
+		try:
+			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
+			time_outs_consecutivos = 0
+			segmentos_recibidos += 1
+			ack_e = seq_r
+			tam_e = 0
+			data_e = ''
+			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+			seq_e += 1
+			if fin_r == 1:
+				break
+			f.write(data_r)
+		except socket.timeout:
+			time_outs_consecutivos += 1
+			f.seek((segmentos_recibidos - 1)*tam_r)
+			if time_outs_consecutivos == 100:
+				print("Se perdio coneccion con el cliente")
+				sys.exit(1)
+
 	print("Termino de recibir el archivo")
 	f.close()
 
@@ -39,53 +57,37 @@ def upload(s,src):
 def start_server(server_address, storage_dir):
 	# TODO: Implementar UDP server
 	print('UDP: start_server({}, {})'.format(server_address, storage_dir))
-
+	time_outs_consecutivos = 0
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.bind(server_address)
 
-	"""
-	#Three-way-Handshake
-
+	#three way handshake
 	try:
-		seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
-		seq_e = 0
-		tam_e = 0
-		tam_e = 0
-		data_e = ''
-		if data_r == "inicio":
+		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+		print("se recibio mensaje")
+		s.settimeout(1)
+		codigo = data_r[0:3]
+		nombre = data_r[3:tam_r]
+		if inicio_r == 1:
+			inicio_e = 1
+			fin_e = 0
+			seq_e = 0
 			ack_e = seq_r
-			mandar_mensaje(s,addr,seq_e,ack_e,tam_e,data_e)
-			esperado = seq_e
-			seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
-			if( ack_r != esperado):
-				raise Exeption("Problema ACK sincronizaciion")
-			seq_e += 1
+			tam_e = 0
+			data_e = ''
+			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+		esperado = 	seq_e
+		if ack_r != esperado:
+			print("Problema de sincronizacion con el cliente")
+			sys.exit(1)
 	except socket.timeout:
-		print("Timeout sincronizacion")
+		print("Problema de sincronizacion con el cliente")
 		sys.exit(1)
-	"""
 
-	#Recivo comando
-	seq_r, ack_r, tam_r, codigo, addr = recibir_mensaje(s)
-
-	seq_e = 0
-	ack_e = seq_r
-	tam_e = 0
-	data_e = ''
-	mandar_mensaje(s,addr,seq_e,ack_e,tam_e,data_e)
-	seq_e += 1
-
-	#Recivo nombre de archivo
-	seq_r, ack_r, tam_r, nombre, addr = recibir_mensaje(s)
 	print(nombre)
-	seq_e = 0
-	ack_e = seq_r
-	tam_e = 0
-	data_e = ''
-	mandar_mensaje(s,addr,seq_e,ack_e,tam_e,data_e)
-	seq_e += 1
-
-
+	#Recivo nombre de archivo
+	s.settimeout(0.1)
 	if codigo == "upl":
 		upload(s,storage_dir+'/'+nombre)
 
