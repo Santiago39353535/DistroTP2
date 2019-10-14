@@ -20,7 +20,7 @@ def recibir_mensaje(s):
 	data = recv[16:16+int(tam)]
 	return (inicio,fin,seq,ack,tam,data,addr)
 
-def upload(s,src):
+def upload(s,src,seq_r):
 	print("Se empieza a recivir el archivo")
 	f = open(src, "w")
 
@@ -30,19 +30,22 @@ def upload(s,src):
 	seq_e = 1
 	inicio_e = 0
 	fin_e = 0
+	seq_esperado = seq_r+1
 	while True:
 		try:
 			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
 			time_outs_consecutivos = 0
-			segmentos_recibidos += 1
 			ack_e = seq_r
 			tam_e = 0
 			data_e = ''
 			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 			seq_e += 1
-			if fin_r == 1:
+			if fin_r == 1:# falta avisar ack del fin
 				break
-			f.write(data_r)
+			if seq_esperado == seq_r:
+				segmentos_recibidos += 1
+				f.write(data_r)
+				seq_esperado = seq_r+1
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			f.seek((segmentos_recibidos - 1)*tam_r)
@@ -63,10 +66,11 @@ def start_server(server_address, storage_dir):
 	s.bind(server_address)
 
 	#three way handshake
+	s.settimeout(4)#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 	try:
 		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
 		print("se recibio mensaje")
-		s.settimeout(1)
 		codigo = data_r[0:3]
 		nombre = data_r[3:tam_r]
 		if inicio_r == 1:
@@ -76,12 +80,32 @@ def start_server(server_address, storage_dir):
 			ack_e = seq_r
 			tam_e = 0
 			data_e = ''
-			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
-		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
-		esperado = 	seq_e
-		if ack_r != esperado:
-			print("Problema de sincronizacion con el cliente")
+
+			s.settimeout(0.1)
+			time_outs_consecutivos = 0
+			while True:
+				try:
+					mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+
+					inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+					esperado = 	seq_e
+					if ack_r == esperado:
+						break
+
+					if ack_r != esperado:
+						print("ack de sincronizacion desfazado")
+						sys.exit(1)
+						
+				except socket.timeout:
+					time_outs_consecutivos += 1
+					if time_outs_consecutivos == 20:
+						print("Sindrome de Syn atack")
+						sys.exit(1)
+
+		else:
+			print("Conexion corrupta")
 			sys.exit(1)
+
 	except socket.timeout:
 		print("Problema de sincronizacion con el cliente")
 		sys.exit(1)
@@ -90,7 +114,7 @@ def start_server(server_address, storage_dir):
 	#Recivo nombre de archivo
 	s.settimeout(0.1)
 	if codigo == "upl":
-		upload(s,storage_dir+'/'+nombre)
+		upload(s,storage_dir+'/'+nombre,seq_r)
 
 	while True:
 		try:

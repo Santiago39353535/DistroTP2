@@ -41,13 +41,15 @@ def upload_file(server_address, src, name):
 		if inicio == 1 and  ack_r == esperado:
 			ack_e = seq_r
 			seq_e += 1
-			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
+			#mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e) puedo avisar junto al primer chunk
 		else:
 			print("Problema de sincronizacion con el servidor")
 			sys.exit(1)
 	except socket.timeout:
 		print("Problema de sincronizacion con el servidor")
 		sys.exit(1)
+
+
 	inicio = 0
 	seq_e += 1
 	s.settimeout(0.1)
@@ -55,15 +57,17 @@ def upload_file(server_address, src, name):
 	f = open(src, "r")
 	data_e = f.read(CHUNK_SIZE)
 	print("Se empieza a mandar el archivo")
+	esperado = seq_e
 	while data_e:
 		try:
 			tam_e = len(data_e)
 			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
-			esperado = seq_e
+
 			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
 			time_outs_consecutivos = 0
 			if( ack_r == esperado):
 				seq_e += 1
+				esperado = seq_e
 				data_e = f.read(CHUNK_SIZE)
 		except socket.timeout:
 			time_outs_consecutivos += 1
