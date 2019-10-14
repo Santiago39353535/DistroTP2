@@ -33,21 +33,27 @@ def upload_file(server_address, src, name):
 	ack_e = 0
 	tam_e = 3 + len(name)
 	data_e = 'upl' + name
-	s.settimeout(1)
-	try:
-		mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
-		esperado = seq_e
-		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
-		if inicio == 1 and  ack_r == esperado:
-			ack_e = seq_r
-			seq_e += 1
-			#mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e) puedo avisar junto al primer chunk
-		else:
-			print("Problema de sincronizacion con el servidor")
-			sys.exit(1)
-	except socket.timeout:
-		print("Problema de sincronizacion con el servidor")
-		sys.exit(1)
+	s.settimeout(0.1)
+	time_outs_consecutivos = 0
+
+	while True:
+		try:
+			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
+			esperado = seq_e
+			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
+			if inicio == 1 and  ack_r == esperado:
+				ack_e = seq_r
+				seq_e += 1
+				break
+				#mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e) puedo avisar junto al primer chunk
+			else:
+				print("falla en protocolo entre conexiones")
+				sys.exit(1)
+		except socket.timeout:
+			time_outs_consecutivos += 1
+			if time_outs_consecutivos == 20:
+				print("Problema de sincronizacion con el servidor")
+				sys.exit(1)
 
 
 	inicio = 0

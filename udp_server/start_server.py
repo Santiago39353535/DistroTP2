@@ -30,7 +30,7 @@ def upload(s,src,seq_r):
 	seq_e = 1
 	inicio_e = 0
 	fin_e = 0
-	seq_esperado = seq_r+1
+	seq_esperado = seq_r
 	while True:
 		try:
 			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
@@ -95,7 +95,7 @@ def start_server(server_address, storage_dir):
 					if ack_r != esperado:
 						print("ack de sincronizacion desfazado")
 						sys.exit(1)
-						
+
 				except socket.timeout:
 					time_outs_consecutivos += 1
 					if time_outs_consecutivos == 20:
