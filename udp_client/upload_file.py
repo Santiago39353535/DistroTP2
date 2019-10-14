@@ -77,28 +77,21 @@ def upload_file(server_address, src, name):
 	print("Informando Fin de Archivo")
 
 	#fin de la coneccion
-	inicio = 0
-	fin = 1
-	seq_e = 0
-	ack_e = 0
-	tam_e = 0
-	data_e = ''
-	mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
-	"""while True:
+	while True:
 		try:
+			inicio = 0
+			fin = 1
 			ack_e = 0
-			tam_e = 3
-			data_e = 'fin'
-			mandar_mensaje(s,server_address,seq_e,ack_e,tam_e,data_e)
-			seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
-			esperado = seq_e
-			if( ack_r != esperado):
-				raise Exeption("Problema ACK sincronizaciion de operacion")
-			break
-		except Exception as e:
+			tam_e = 0
+			data_e = ''
+			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
+			if ack_r == esperado:
+				break
+			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
+		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 100:
-				print("Server desconectado")
-				sys.exit(1)"""
+			if time_outs_consecutivos == 20:
+				break
+
 	f.close()
 	s.close()

@@ -2,6 +2,7 @@ import socket
 import sys, traceback
 
 RECV = 1500
+seq_r = 0
 #header IFSSSSSAAAAATTTT
 
 def mandar_mensaje(s,addr,inicio,fin,seq,ack,tam,data):
@@ -91,5 +92,19 @@ def start_server(server_address, storage_dir):
 	if codigo == "upl":
 		upload(s,storage_dir+'/'+nombre)
 
+	while True:
+		try:
+			inicio_e = 0
+			fin_e = 1
+			seq_e += 1
+			ack_e = seq_r
+			tam_e = 0
+			data_e = ''
+			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+		except socket.timeout:
+			time_outs_consecutivos += 1
+			if time_outs_consecutivos == 20:
+				break
 
 	s.close()
