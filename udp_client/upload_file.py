@@ -51,7 +51,7 @@ def upload_file(server_address, src, name):
 				sys.exit(1)
 		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 1000:
+			if time_outs_consecutivos == 50:
 				print("Problema de sincronizacion con el servidor")
 				sys.exit(1)
 
@@ -74,10 +74,12 @@ def upload_file(server_address, src, name):
 			if( ack_r == esperado):
 				seq_e += 1
 				esperado = seq_e
+				if(seq_e == 99999):
+					seq_e = 0
 				data_e = f.read(CHUNK_SIZE)
 		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 1000:
+			if time_outs_consecutivos == 50:
 				print("Server desconectado")
 				sys.exit(1)
 
@@ -100,7 +102,7 @@ def upload_file(server_address, src, name):
 			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
 		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 1000:
+			if time_outs_consecutivos == 50:
 				break
 
 	f.close()

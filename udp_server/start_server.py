@@ -48,6 +48,8 @@ def upload(s,src,seq_r):
 				segmentos_recibidos += 1
 				f.write(data_r)
 				seq_esperado = seq_r+1
+				if(seq_esperado == 99999):
+					seq_esperado = 0
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			f.seek((segmentos_recibidos - 1)*tam_r)
@@ -87,12 +89,14 @@ def download(s,src,seq_e,addr):
 				time_outs_consecutivos = 0
 				if( ack_r == esperado):
 					seq_e += 1
+					if seq_e == 99999:
+						seq_e = 0
 					esperado = seq_e
 					data_e = f.read(CHUNK_SIZE)
 
 			except socket.timeout:
 				time_outs_consecutivos += 1
-				if time_outs_consecutivos == 1000:
+				if time_outs_consecutivos == 50:
 					print("Server desconectado")
 					sys.exit(1)
 
@@ -138,7 +142,7 @@ def start_server(server_address, storage_dir):
 
 				except socket.timeout:
 					time_outs_consecutivos += 1
-					if time_outs_consecutivos == 1000:
+					if time_outs_consecutivos == 50:
 						print("Sindrome de Syn atack")
 						sys.exit(1)
 
@@ -173,6 +177,6 @@ def start_server(server_address, storage_dir):
 				break
 		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 1000:
+			if time_outs_consecutivos == 50:
 				break
 	s.close()
