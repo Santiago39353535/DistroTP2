@@ -1,6 +1,7 @@
 import socket
 import sys, traceback
 
+CHUNK_SIZE = 1024
 RECV = 1500
 seq_r = 0
 #header IFSSSSSAAAAATTTT
@@ -49,12 +50,50 @@ def upload(s,src,seq_r):
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			f.seek((segmentos_recibidos - 1)*tam_r)
-			if time_outs_consecutivos == 100:
+			if time_outs_consecutivos == 1000:
 				print("Se perdio coneccion con el cliente")
 				sys.exit(1)
 
 	print("Termino de recibir el archivo")
 	f.close()
+
+
+
+def download(s,src,seq_e,addr):
+		inicio = 0
+		fin = 0
+		ack_e = 1
+		seq_e = seq_e +1
+		esperado = seq_e
+		
+		time_outs_consecutivos = 0
+		s.settimeout(0.1)
+		#Empiezo a mandar archivo
+		f = open(src, "r")
+		data_e = f.read(CHUNK_SIZE)
+		print("Se empieza a mandar el archivo")
+		while data_e:
+			try:
+				tam_e = len(data_e)
+				mandar_mensaje(s,addr,inicio,fin,seq_e,ack_e,tam_e,data_e)
+
+				inicio_r, fin_r,seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
+
+				time_outs_consecutivos = 0
+				if( ack_r == esperado):
+					seq_e += 1
+					esperado = seq_e
+					data_e = f.read(CHUNK_SIZE)
+
+			except socket.timeout:
+				time_outs_consecutivos += 1
+				if time_outs_consecutivos == 1000:
+					print("Server desconectado")
+					sys.exit(1)
+
+		print("Informando Fin de Archivo")
+
+
 
 
 
@@ -66,7 +105,6 @@ def start_server(server_address, storage_dir):
 	s.bind(server_address)
 
 	#three way handshake
-	s.settimeout(4)#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	try:
 		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
@@ -83,22 +121,19 @@ def start_server(server_address, storage_dir):
 
 			s.settimeout(0.1)
 			time_outs_consecutivos = 0
+
 			while True:
 				try:
 					mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 
 					inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
 					esperado = 	seq_e
-					if ack_r == esperado:
-						break
-
-					if ack_r != esperado:
-						print("ack de sincronizacion desfazado")
-						sys.exit(1)
+					if inicio_r == 0:
+						break# go to print nombre
 
 				except socket.timeout:
 					time_outs_consecutivos += 1
-					if time_outs_consecutivos == 20:
+					if time_outs_consecutivos == 1000:
 						print("Sindrome de Syn atack")
 						sys.exit(1)
 
@@ -115,6 +150,8 @@ def start_server(server_address, storage_dir):
 	s.settimeout(0.1)
 	if codigo == "upl":
 		upload(s,storage_dir+'/'+nombre,seq_r)
+	if codigo == "dow":
+		download(s,storage_dir+'/'+nombre,seq_e,addr)
 
 	while True:
 		try:
@@ -128,7 +165,7 @@ def start_server(server_address, storage_dir):
 			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
 		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 20:
+			if time_outs_consecutivos == 1000:
 				break
 
 	s.close()

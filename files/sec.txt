@@ -1,0 +1,10 @@
+dowload req clinet: inicio_r = 1, fin_r = 0,seq_r = 0, ack_r = 0, tam_r = 3+len(name), data_r = (name)
+down serv ack req: inicio_r = 1, fin_r = 0,seq_r = 0, ack_r = 0, tam_r = 0, data_r = 0
+
+
+dl cl ack: inicio_r = 0, fin_r=0,seq_r=1+n, ack_r = n, tam_r = 0, data_r = 0
+
+dl serv chunk: inicio_r = 0, fin_r = 0,seq_r = 1+n, ack_r = XXX, tam_r = m, data_r = ...
+
+
+fin..
