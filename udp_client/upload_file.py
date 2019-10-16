@@ -1,5 +1,6 @@
 import socket
 import sys, traceback
+import os.path
 
 CHUNK_SIZE = 1024
 RECV = 1500
@@ -41,6 +42,7 @@ def upload_file(server_address, src, name):
 			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
 			esperado = seq_e
 			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
+			time_outs_consecutivos = 0
 			if inicio == 1 and  ack_r == esperado:
 				ack_e = seq_r
 				seq_e += 1
@@ -48,11 +50,13 @@ def upload_file(server_address, src, name):
 				#mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e) puedo avisar junto al primer chunk
 			else:
 				print("falla en protocolo entre conexiones")
+				s.close()
 				sys.exit(1)
 		except socket.timeout:
 			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 50:
+			if time_outs_consecutivos == 100:
 				print("Problema de sincronizacion con el servidor")
+				s.close()
 				sys.exit(1)
 
 
@@ -60,34 +64,42 @@ def upload_file(server_address, src, name):
 	seq_e += 1
 	s.settimeout(0.1)
 	#Empiezo a mandar archivo
-	f = open(src, "r")
-	data_e = f.read(CHUNK_SIZE)
-	print("Se empieza a mandar el archivo")
-	esperado = seq_e
-	while data_e:
+	if os.path.exists(src):
+		f = open(src, "r")
+		data_e = f.read(CHUNK_SIZE)
+		print("Se empieza a mandar el archivo")
+		esperado = seq_e
 		try:
-			tam_e = len(data_e)
-			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
+			while data_e:
+				try:
+					tam_e = len(data_e)
+					mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
 
-			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
-			time_outs_consecutivos = 0
-			if( ack_r == esperado):
-				seq_e += 1
-				esperado = seq_e
-				if(seq_e == 99999):
-					seq_e = 0
-				data_e = f.read(CHUNK_SIZE)
-		except socket.timeout:
-			time_outs_consecutivos += 1
-			if time_outs_consecutivos == 50:
-				print("Server desconectado")
-				sys.exit(1)
+					inicio_r, fin_r,seq_r, ack_r, tam_r, data_r= recibir_mensaje(s)
+					time_outs_consecutivos = 0
+					if( fin_r == 1):
+						print("server error")
+						raise Exception("server error")
+					if( ack_r == esperado):
+						seq_e += 1
+						esperado = seq_e
+						if(seq_e == 99999):
+							seq_e = 0
+						data_e = f.read(CHUNK_SIZE)
+				except socket.timeout:
+					time_outs_consecutivos += 1
+					if time_outs_consecutivos == 100:
+						print("Server desconectado")
+						raise Exception("server error")
+		except Exception as e:
+			f.close()
+			s.close()
+			sys.exit(1)
 
-
-
-
-	print("Informando Fin de Archivo")
-
+		print("Informando Fin de Archivo")
+		f.close()
+	else:
+		print("El archivo no existe")
 	#fin de la coneccion
 	while True:
 		try:
@@ -96,14 +108,14 @@ def upload_file(server_address, src, name):
 			ack_e = 0
 			tam_e = 0
 			data_e = ''
+			esperado = seq_e
 			mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e)
+			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
+			time_outs_consecutivos = 0
 			if ack_r == esperado:
 				break
-			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			if time_outs_consecutivos == 50:
 				break
-
-	f.close()
 	s.close()
