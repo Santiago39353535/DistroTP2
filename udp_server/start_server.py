@@ -2,17 +2,21 @@ import socket
 import sys, traceback
 import time
 import os.path
+import hashlib
 
 CHUNK_SIZE = 1024
 RECV = 1500
 seq_r = 0
-#header IFSSSSSAAAAATTTT
+#header IFSSSSSAAAAATTTTCCCCC
 
 def mandar_mensaje(s,addr,inicio,fin,seq,ack,tam,data):
-	msg = str(inicio)+str(fin)+str(seq).zfill(5)+str(ack).zfill(5)+str(tam).zfill(4)+data
+	m = hashlib.md5()
+	m.update((str(inicio)+str(fin)+str(seq).zfill(5)+str(ack).zfill(5)+str(tam).zfill(4)+data).encode())
+	msg = str(inicio)+str(fin)+str(seq).zfill(5)+str(ack).zfill(5)+str(tam).zfill(4)+m.hexdigest()+data
 	s.sendto(msg.encode(),addr)
 
 def recibir_mensaje(s):
+	m = hashlib.md5()
 	recv, addr = s.recvfrom(RECV)
 	recv = recv.decode()
 	inicio = int(recv[0])
@@ -20,8 +24,12 @@ def recibir_mensaje(s):
 	seq = int(recv[2:7])#del 0 al 5 sin incluir
 	ack = int(recv[7:12])
 	tam = int(recv[12:16])
-	data = recv[16:16+int(tam)]
-	return (inicio,fin,seq,ack,tam,data,addr)
+	checksum_r = recv[16:48]
+	data = recv[48:48+int(tam)]
+	m.update((recv[0:16]+recv[48:48+int(tam)]).encode())
+	checksum_c = m.hexdigest()
+	validacion = checksum_c == checksum_r
+	return (inicio,fin,seq,ack,tam,data,addr,validacion)
 
 def upload(s,src,seq_r):
 	print("Se empieza a recivir el archivo")
@@ -36,21 +44,22 @@ def upload(s,src,seq_r):
 	seq_esperado = seq_r
 	while True:
 		try:
-			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r,addr = recibir_mensaje(s)
+			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r,addr, validacion = recibir_mensaje(s)
 			time_outs_consecutivos = 0
-			ack_e = seq_r
-			tam_e = 0
-			data_e = ''
-			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
-			seq_e += 1
-			if fin_r == 1:# falta avisar ack del fin
-				break
-			if seq_esperado == seq_r:
-				segmentos_recibidos += 1
-				f.write(data_r)
-				seq_esperado = seq_r+1
-				if(seq_esperado == 99999):
-					seq_esperado = 0
+			if validacion:
+				ack_e = seq_r
+				tam_e = 0
+				data_e = ''
+				mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+				seq_e += 1
+				if fin_r == 1:# falta avisar ack del fin
+					break
+				if seq_esperado == seq_r:
+					segmentos_recibidos += 1
+					f.write(data_r)
+					seq_esperado = seq_r+1
+					if(seq_esperado == 99999):
+						seq_esperado = 0
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			f.seek((segmentos_recibidos - 1)*tam_r)
@@ -86,15 +95,15 @@ def download(s,src,seq_e,addr):
 					tam_e = len(data_e)
 					mandar_mensaje(s,addr,inicio,fin,seq_e,ack_e,tam_e,data_e)
 
-					inicio_r, fin_r,seq_r, ack_r, tam_r, data_r,addr= recibir_mensaje(s)
+					inicio_r, fin_r,seq_r, ack_r, tam_r, data_r,addr, validacion= recibir_mensaje(s)
 					time_outs_consecutivos = 0
-					if( ack_r == esperado):
-						seq_e += 1
-						if seq_e == 99999:
-							seq_e = 0
-						esperado = seq_e
-						data_e = f.read(CHUNK_SIZE)
-
+					if validacion:
+						if( ack_r == esperado):
+							seq_e += 1
+							if seq_e == 99999:
+								seq_e = 0
+							esperado = seq_e
+							data_e = f.read(CHUNK_SIZE)
 				except socket.timeout:
 					time_outs_consecutivos += 1
 					if time_outs_consecutivos == 100:
@@ -108,37 +117,39 @@ def download(s,src,seq_e,addr):
 
 def inicio_coneccion(s):
 	try:
-		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr= recibir_mensaje(s)
+		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr, validacion = recibir_mensaje(s)
 		time_outs_consecutivos = 0
-		print("se recibio mensaje")
-		codigo = data_r[0:3]
-		nombre = data_r[3:tam_r]
-		if inicio_r == 1:
-			inicio_e = 1
-			fin_e = 0
-			seq_e = 0
-			ack_e = seq_r
-			tam_e = 0
-			data_e = ''
-			s.settimeout(0.1)
-			while True:
-				try:
-					mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
-					inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
-					time_outs_consecutivos = 0
-					esperado = 	seq_e
-					if inicio_r == 0:
-						break# go to print nombre
-				except socket.timeout:
-					time_outs_consecutivos += 1
-					if time_outs_consecutivos == 100:
-						print("Sindrome de Syn atack")
-						raise Exception("Sindrome de Syn atack")
+		if validacion:
+			print("se recibio mensaje")
+			codigo = data_r[0:3]
+			nombre = data_r[3:tam_r]
+			if inicio_r == 1:
+				inicio_e = 1
+				fin_e = 0
+				seq_e = 0
+				ack_e = seq_r
+				tam_e = 0
+				data_e = ''
+				s.settimeout(0.1)
+				while True:
+					try:
+						mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+						inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr,validacion = recibir_mensaje(s)
+						time_outs_consecutivos = 0
+						if validacion:
+							esperado = 	seq_e
+							if inicio_r == 0:
+								break# go to print nombre
+					except socket.timeout:
+						time_outs_consecutivos += 1
+						if time_outs_consecutivos == 100:
+							print("Sindrome de Syn atack")
+							raise Exception("Sindrome de Syn atack")
 
-			else:
-				print("Conexion corrupta")
-				raise Exception("Conexion corrupta")
-		return (codigo, nombre, seq_r, seq_e, addr)
+				else:
+					print("Conexion corrupta")
+					raise Exception("Conexion corrupta")
+			return (codigo, nombre, seq_r, seq_e, addr)
 	except socket.timeout:
 		print("Problema de sincronizacion con el cliente")
 		raise Exception("Problema de sincronizacion con el cliente")
@@ -176,9 +187,10 @@ def start_server(server_address, storage_dir):
 						tam_e = 0
 						data_e = ''
 						mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
-						inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
-						if (fin_r == 1):
-							break
+						inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr,validacion = recibir_mensaje(s)
+						if validacion:
+							if (fin_r == 1):
+								break
 					except socket.timeout:
 						time_outs_consecutivos += 1
 						if time_outs_consecutivos == 15:
