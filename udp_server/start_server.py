@@ -32,7 +32,6 @@ def recibir_mensaje(s):
 	return (inicio,fin,seq,ack,tam,data,addr,validacion)
 
 def upload(s,src,seq_r):
-	print("Se empieza a recivir el archivo")
 	f = open(src, "w")
 
 	segmentos_recibidos = 1
@@ -67,7 +66,6 @@ def upload(s,src,seq_r):
 				f.close()
 				raise Exception("Se perdio coneccion con el cliente")
 
-	print("Termino de recibir el archivo")
 	f.close()
 	tam_r = 0
 	inicio_e = 0
@@ -89,7 +87,6 @@ def download(s,src,seq_e,addr):
 		if os.path.exists(src):
 			f = open(src, "r")
 			data_e = f.read(CHUNK_SIZE)
-			print("Se empieza a mandar el archivo")
 			while data_e:
 				try:
 					tam_e = len(data_e)
@@ -107,11 +104,9 @@ def download(s,src,seq_e,addr):
 				except socket.timeout:
 					time_outs_consecutivos += 1
 					if time_outs_consecutivos == 100:
-						print("Se perdio coneccion con el cliente")
 						f.close()
 						raise Exception("Se perdio coneccion con el cliente")
 
-			print("Informando Fin de Archivo")
 			f.close()
 
 
@@ -120,7 +115,6 @@ def inicio_coneccion(s):
 		inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr, validacion = recibir_mensaje(s)
 		time_outs_consecutivos = 0
 		if validacion:
-			print("se recibio mensaje")
 			codigo = data_r[0:3]
 			nombre = data_r[3:tam_r]
 			if inicio_r == 1:
@@ -139,19 +133,16 @@ def inicio_coneccion(s):
 						if validacion:
 							esperado = 	seq_e
 							if inicio_r == 0:
-								break# go to print nombre
+								break
 					except socket.timeout:
 						time_outs_consecutivos += 1
 						if time_outs_consecutivos == 100:
-							print("Sindrome de Syn atack")
 							raise Exception("Sindrome de Syn atack")
 
 				else:
-					print("Conexion corrupta")
 					raise Exception("Conexion corrupta")
 			return (codigo, nombre, seq_r, seq_e, addr)
 	except socket.timeout:
-		print("Problema de sincronizacion con el cliente")
 		raise Exception("Problema de sincronizacion con el cliente")
 
 
@@ -170,32 +161,33 @@ def start_server(server_address, storage_dir):
 			#three way handshake
 			codigo, nombre, seq_r, seq_e, addr = inicio_coneccion(s)
 			try:
-				print(nombre)
 				s.settimeout(0.1)
 				if codigo == "upl":
 					upload(s,storage_dir+'/'+nombre,seq_r)
+					fin_e = 1
+					mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 				if codigo == "dow":
 					download(s,storage_dir+'/'+nombre,seq_e,addr)
-
-				time.sleep(0.2)
-				while True:
-					try:
-						inicio_e = 0
-						fin_e = 1
-						seq_e += 1
-						ack_e = seq_r
-						tam_e = 0
-						data_e = ''
-						mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
-						inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr,validacion = recibir_mensaje(s)
-						if validacion:
-							if (fin_r == 1):
+					time.sleep(0.2)
+					while True:
+						try:
+							inicio_e = 0
+							fin_e = 1
+							seq_e += 1
+							ack_e = seq_r
+							tam_e = 0
+							data_e = ''
+							mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
+							inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr,validacion = recibir_mensaje(s)
+							if validacion:
+								if (fin_r == 1):
+									break
+						except socket.timeout:
+							time_outs_consecutivos += 1
+							if time_outs_consecutivos == 15:
 								break
-					except socket.timeout:
-						time_outs_consecutivos += 1
-						if time_outs_consecutivos == 15:
-							break
-				print("Esperando nuevo cliente")
+					fin_e = 2
+					mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 			except Exception as e:
 				 pass
 		except Exception as e:

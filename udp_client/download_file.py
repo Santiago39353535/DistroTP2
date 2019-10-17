@@ -59,17 +59,14 @@ def download_file(server_address, name, dst):
 					seq_e += 1
 					break
 				else:
-					print("falla en protocolo entre conexiones")
 					s.close()
 					sys.exit(1)
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			if time_outs_consecutivos == 100:
-				print("Problema de sincronizacion con el servidor")
 				s.close()
 				sys.exit(1)
 
-	print("Se empieza a recivir el archivo")
 	f = open(dst, "w")
 	inicio = 0
 	fin = 0
@@ -103,12 +100,10 @@ def download_file(server_address, name, dst):
 			time_outs_consecutivos += 1
 			#f.seek((segmentos_recibidos - 1)*tam_r)
 			if time_outs_consecutivos == 100:
-				print("Se perdio coneccion con el cliente")
 				f.close()
 				s.close()
 				sys.exit(1)
 
-	print("Termino de recibir el archivo")
 	f.close()
 
     #end
@@ -125,7 +120,7 @@ def download_file(server_address, name, dst):
 			mandar_mensaje(s,server_address,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, validacion = recibir_mensaje(s)
 			if validacion:
-				if fin_r == 1:
+				if fin_r == 2:
 					break
 		except socket.timeout:
 			time_outs_consecutivos += 1

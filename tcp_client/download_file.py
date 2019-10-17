@@ -11,14 +11,11 @@ def download_file(server_address, name, dst):
 	s.send("dow".encode())
 	s.send(struct.pack('!i', len(name.encode())))
 	s.send(name.encode())
-	# print(name)
 
-	# f = open(dst, "wb")
 
 	try:
 		f = open(dst, "wb")
 	except:
-		print("Loacacion incorrecta")
 		sys.exit()
 
 	end = False;
@@ -27,19 +24,15 @@ def download_file(server_address, name, dst):
 	  		# Recibir datos del cliente.
 			largo = s.recv(4)
 			largo = struct.unpack('!i', largo[:4])[0]
-			# print("Largo Paquete por recibir" + str(largo))
 			input_data = s.recv(largo)
 
 		except:
-			print("Error de lectura.")
 			break
 
 		if input_data:
 			# Compatibilidad con Python 3.
 			if isinstance(input_data, bytes):
-				# print("FinArchivo")
 				end = input_data[0] == 1
-				print("El archivo se ha recibido correctamente.")
 			else:
 	    			end = input_data == chr(1)
 			if not end:

@@ -60,13 +60,11 @@ def upload_file(server_address, src, name):
 					break
 					#mandar_mensaje(s,server_address,inicio,fin,seq_e,ack_e,tam_e,data_e) puedo avisar junto al primer chunk
 				else:
-					print("falla en protocolo entre conexiones")
 					s.close()
 					sys.exit(1)
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			if time_outs_consecutivos == 100:
-				print("Problema de sincronizacion con el servidor")
 				s.close()
 				sys.exit(1)
 
@@ -78,7 +76,6 @@ def upload_file(server_address, src, name):
 	if os.path.exists(src):
 		f = open(src, "r")
 		data_e = f.read(CHUNK_SIZE)
-		print("Se empieza a mandar el archivo")
 		esperado = seq_e
 		try:
 			while data_e:
@@ -90,7 +87,6 @@ def upload_file(server_address, src, name):
 					time_outs_consecutivos = 0
 					if validacion:
 						if( fin_r == 1):
-							print("server error")
 							raise Exception("server error")
 						if( ack_r == esperado):
 							seq_e += 1
@@ -101,17 +97,13 @@ def upload_file(server_address, src, name):
 				except socket.timeout:
 					time_outs_consecutivos += 1
 					if time_outs_consecutivos == 100:
-						print("Server desconectado")
 						raise Exception("server error")
 		except Exception as e:
 			f.close()
 			s.close()
 			sys.exit(1)
 
-		print("Informando Fin de Archivo")
 		f.close()
-	else:
-		print("El archivo no existe")
 	#fin de la coneccion
 	while True:
 		try:
@@ -125,7 +117,7 @@ def upload_file(server_address, src, name):
 			inicio_r, fin_r,seq_r, ack_r, tam_r, data_r, validacion = recibir_mensaje(s)
 			time_outs_consecutivos = 0
 			if validacion:
-				if ack_r == esperado:
+				if fin_r == 1:
 					break
 		except socket.timeout:
 			time_outs_consecutivos += 1
