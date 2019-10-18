@@ -1,5 +1,6 @@
 import socket
 import sys, traceback
+import time
 
 CHUNK_SIZE = 1024
 RECV = 1500
@@ -56,7 +57,11 @@ def upload(s,src,seq_r):
 
 	print("Termino de recibir el archivo")
 	f.close()
-
+	tam_r = 0
+	inicio_e = 0
+	fin_e = 1
+	seq_esperado = seq_r
+	mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 
 
 def download(s,src,seq_e,addr):
@@ -65,7 +70,7 @@ def download(s,src,seq_e,addr):
 		ack_e = 1
 		seq_e = seq_e +1
 		esperado = seq_e
-		
+
 		time_outs_consecutivos = 0
 		s.settimeout(0.1)
 		#Empiezo a mandar archivo
@@ -153,6 +158,7 @@ def start_server(server_address, storage_dir):
 	if codigo == "dow":
 		download(s,storage_dir+'/'+nombre,seq_e,addr)
 
+	time.sleep(0.2)
 	while True:
 		try:
 			inicio_e = 0
@@ -163,9 +169,10 @@ def start_server(server_address, storage_dir):
 			data_e = ''
 			mandar_mensaje(s,addr,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
 			inicio_r, fin_r, seq_r, ack_r, tam_r, data_r, addr = recibir_mensaje(s)
+			if fin_r == 1:
+				break
 		except socket.timeout:
 			time_outs_consecutivos += 1
 			if time_outs_consecutivos == 1000:
 				break
-
 	s.close()

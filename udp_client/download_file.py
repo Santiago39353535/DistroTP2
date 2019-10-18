@@ -107,7 +107,7 @@ def download_file(server_address, name, dst):
         try:
             mandar_mensaje(s,server_address,inicio_e,fin_e,seq_e,ack_e,tam_e,data_e)
             inicio_r, fin_r, seq_r, ack_r, tam_r, data_r = recibir_mensaje(s)
-            if ack_r == esperado:
+            if fin_r == 1:
                 break
         except socket.timeout:
             time_outs_consecutivos += 1
